@@ -2,7 +2,6 @@ import os
 
 # Set your API key and proxy settings
 os.environ["GOOGLE_API_KEY"] = "AIzaSyBNpsPnICYXO1iGQ9twPNbemmbV8At8qMo"
-
 os.environ["USER_AGENT"] = "Mozilla/5.0 (compatible; MyRAGApp/1.0)"
 
 from langchain.chat_models import init_chat_model
@@ -12,13 +11,41 @@ import trafilatura
 import requests
 from langchain.schema import Document
 
-# Prompt user for URL and extract main content
-url = input("Enter the URL you want to learn more about: ").strip()
-html = requests.get(url).text
-main_text = trafilatura.extract(html)
-if not main_text:
+# New: PDF support
+import PyPDF2
+
+def get_pdf_text(pdf_path):
+    text = ""
+    with open(pdf_path, "rb") as f:
+        reader = PyPDF2.PdfReader(f)
+        for page in reader.pages:
+            text += page.extract_text() or ""
+    return text
+
+# Prompt user for source type
+source_type = input("Select what source do you want learn from (url/pdf): ").strip().lower()
+
+all_docs = []
+if source_type == "url":
+    url = input("Enter the URL you want to learn more about: ").strip()
+    html = requests.get(url).text
+    main_text = trafilatura.extract(html)
+    if not main_text:
+        exit()
+    all_docs = [Document(page_content=main_text)]
+elif source_type == "pdf":
+    pdf_path = input("Enter the path to the PDF file: ").strip()
+    if not os.path.isfile(pdf_path):
+        print("PDF file not found.")
+        exit()
+    pdf_text = get_pdf_text(pdf_path)
+    if not pdf_text.strip():
+        print("Could not extract text from PDF.")
+        exit()
+    all_docs = [Document(page_content=pdf_text)]
+else:
+    print("Invalid source type.")
     exit()
-all_docs = [Document(page_content=main_text)]
 
 if not all_docs:
     exit()
